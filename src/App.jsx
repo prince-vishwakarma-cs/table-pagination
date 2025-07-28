@@ -47,25 +47,28 @@ const App = () => {
   const onBulkSubmit = async () => {
     const n = parseInt(bulkCount, 10);
     if (!n || n < 1) return;
-    let gathered = [];
-    let p = 1;
 
-    while (gathered.length < n) {
-      const url = `https://api.artic.edu/api/v1/artworks?page=${p}&fields=${fields}`;
-      try {
-        const resp = await fetch(url);
-        const json = await resp.json();
-        if (!json.data.length) break;
-        gathered = gathered.concat(json.data);
-        p += 1;
-      } catch {
-        break;
-      }
+    const apiLimit = 100;
+    const pagesToFetch = Math.ceil(n / apiLimit);
+    
+    const promises = [];
+    for (let page = 1; page <= pagesToFetch; page++) {
+      const url = `https://api.artic.edu/api/v1/artworks?page=${page}&limit=${apiLimit}&fields=${fields}`;
+      promises.push(fetch(url).then((res) => res.json()));
     }
 
-    setSelected(gathered.slice(0, n));
-    setBulkCount("");
-    overlayRef.current.hide();
+    try {
+      const results = await Promise.all(promises);
+      
+      const allData = results.flatMap((result) => result.data);
+      setSelected(allData.slice(0, n));
+
+    } catch (error) {
+      console.error("Failed to fetch bulk data:", error);
+    } finally {
+      setBulkCount("");
+      overlayRef.current.hide();
+    }
   };
 
   const header = () => (
